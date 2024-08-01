@@ -3,6 +3,7 @@ const { WebhookClient, Payload } = require('dialogflow-fulfillment');
 const nodemailer = require('nodemailer');
 const express = require('express');
 const bodyParser = require('body-parser');
+const openai = require('./openaiClient'); // Import the OpenAI client
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -47,17 +48,35 @@ async function sendConfirmationEmail(userChoices) {
   }
 }
 
+// Async function to get a response from OpenAI
+async function getOpenAIResponse(prompt) {
+  const response = await openai.createCompletion({
+    model: 'text-davinci-003', // or another model like 'gpt-4'
+    prompt: prompt,
+    max_tokens: 150
+  });
+  return response.data.choices[0].text.trim();
+}
+
 // Endpoint to handle Dialogflow webhook requests
-app.post('/webhook', (req, res) => {
+app.post('/webhook', async (req, res) => {
   const agent = new WebhookClient({ request: req, response: res });
 
-  function cowPurchaseHandler(agent) {
+  async function cowPurchaseHandler(agent) {
     const { color, number, email, phone, address } = agent.parameters;
     const userChoices = { color, number, email, phone, address };
 
-    agent.add(
-      PurchaseCow = `Let me summarize your choices: ${color}, ${number}, ${email}, ${phone}, ${address}. Can I proceed with the purchase?`
-    );
+    const prompt = `The user wants to purchase a cow with the following details: 
+      Cow Type: ${color}, 
+      Budget: ${number}, 
+      Email: ${email}, 
+      Phone: ${phone}, 
+      Location: ${address}. 
+    How should I proceed with this purchase?`;
+
+    const openAIResponse = await getOpenAIResponse(prompt);
+
+    agent.add(`OpenAI suggests: ${openAIResponse}`);
 
     // Simulate user confirmation
     if (true) { // Replace with actual confirmation logic
